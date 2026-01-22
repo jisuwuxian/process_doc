@@ -1,0 +1,53 @@
+{% extends 'html_template.html' %}
+{% block content %}
+    <h2>添加纠错样本</h2>
+    <form method="post" class="row g-3">
+        {% csrf_token %}
+        <div class="col-auto">
+            <input type="text" name="error_word" class="form-control" placeholder="错误词语(如: 关子)">
+        </div>
+        <div class="col-auto">
+            <input type="text" name="correct_word" class="form-control" placeholder="正确词语(如: 关于)">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-success">保存样本</button>
+        </div>
+        <a href="/" class="btn btn-link">返回识别页</a>
+    </form>
+
+    <hr>
+
+    <hr/>
+    <div name="mianbanliebiao">
+    <div class="bs-example" data-example-id="table-within-panel">
+    <div class="panel panel-default">
+      <!-- Default panel contents -->
+      <div class="panel-heading">已有样本：</div>
+      <div class="panel-body">
+        <p>列表</p>
+      </div>
+
+      <!-- Table -->
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>错误词</th>
+            <th>正确词</th>
+          </tr>
+        </thead>
+        <tbody>
+            {% for s in samples %}
+            <tr>
+              <td>{{ s.id }}</td>
+            <td>{{ s.error_word }}</td>
+            <td>{{ s.correct_word }}</td>
+          </tr>
+            {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+    </div>
+
+{% endblock %}

@@ -1,7 +1,6 @@
 from django.db import models
 
 
-
 class ErrorCorrection(models.Model):
     error_word = models.CharField(max_length=100, unique=True, verbose_name="错误词语")
     correct_word = models.CharField(max_length=100, verbose_name="正确词语")
@@ -20,11 +19,11 @@ class departments(models.Model):
 
 class employees(models.Model):
     name = models.CharField(max_length=100, verbose_name="员工姓名")
-    gender_choices = (
+    gender_choices = [
         (1, '男'),
         (2, '女'),
-    )
-    gender = models.IntegerField(verbose_name="员工性别", choices=gender_choices)
+    ]
+    gender = models.CharField(max_length=10, verbose_name="员工性别", choices=gender_choices)
     age = models.IntegerField(verbose_name="员工年龄")
     account = models.CharField(max_length=10, verbose_name="员工账号", default="0")
     create_time = models.DateTimeField(verbose_name="创建时间")
@@ -32,7 +31,6 @@ class employees(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.create_time})"
-
 
 
 class lianghao(models.Model):
@@ -57,12 +55,11 @@ class lianghao(models.Model):
         default=1,  # Added default value to resolve migration error
     )
 
+    def save(self, *args, **kwargs):
+        # Convert empty string to default value if present
+        if self.status == '':
+            self.status = self._meta.get_field('status').default
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.mobile}"
-
-
-class Admin_user(models.Model):
-    """管理员用户"""
-    username = models.CharField(max_length=32, verbose_name="用户名")
-    password = models.CharField(max_length=64, verbose_name="密码")
-    create_time = models.DateTimeField(verbose_name="创建时间")

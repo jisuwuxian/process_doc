@@ -1,0 +1,11 @@
+{% extends 'html_template.html' %}
+{% block content %}
+    <h1>新增靓号（modelform）</h1>
+    <div name="department-edit">
+    <form action="" method="post" novalidate>
+        {% csrf_token %}
+        {{ form.as_p }}
+        <input type="submit" class="btn btn-primary" value="提 交">
+    </form>
+    </div>
+{% endblock %}

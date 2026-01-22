@@ -1,0 +1,1207 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static '/plugins/bootstrap-3.4.1-dist/css/bootstrap.css' %}">
+    <title>公文标题处理工具（Excel数据驱动版）</title>
+    <style>
+        /* 保持原有样式不变 */
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        .container {
+            background: #f5f5f5;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        textarea {
+            width: 100%;
+            padding: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        button {
+            background: #2d8cf0;
+            color: white;
+            border: none;
+            padding: 0.8rem 2rem;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        button:hover {
+            background: #1e7ae3;
+        }
+        button.copy-btn {
+            background: #42c979;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+        button.copy-btn:hover {
+            background: #36b368;
+        }
+        button.clear-paste-btn {
+            background: #ff7d00;
+            padding: 0.8rem 2rem;
+            font-size: 1rem;
+        }
+        button.clear-paste-btn:hover {
+            background: #e06e00;
+        }
+        button.excel-btn {
+            background: #673ab7;
+            padding: 0.8rem 2rem;
+            font-size: 1rem;
+        }
+        button.excel-btn:hover {
+            background: #5a329e;
+        }
+        .result {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            font-size: 1.05rem;
+            line-height: 1.8;
+        }
+        .label {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+        .block-item {
+            margin: 1rem 0;
+            padding: 0.8rem;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border-left: 3px solid #2d8cf0;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            gap: 0.8rem;
+        }
+        .block-title {
+            font-size: 0.9rem;
+            color: #666;
+            min-width: 80px;
+            margin-top: 0.5rem;
+        }
+        .editable-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: border 0.3s;
+            resize: none;
+            line-height: 1.5;
+            overflow: auto;
+        }
+        .editable-input:focus {
+            outline: none;
+            border-color: #2d8cf0;
+            box-shadow: 0 0 0 2px rgba(45, 140, 240, 0.1);
+        }
+        .copy-success {
+            color: #36b368;
+            margin-left: 0.5rem;
+            font-size: 0.9rem;
+            display: none;
+            margin-top: 0.5rem;
+        }
+        .loading {
+            color: #666;
+            font-size: 0.9rem;
+            margin-left: 0.5rem;
+            display: none;
+            margin-top: 0.5rem;
+        }
+        .full-content-block {
+            width: 100%;
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+        .excel-upload-area {
+            margin: 1.5rem 0;
+            padding: 1rem;
+            background: #f0f5ff;
+            border-radius: 4px;
+            border-left: 3px solid #673ab7;
+        }
+        #uploadStatus {
+            margin-left: 1rem;
+            font-size: 0.9rem;
+            vertical-align: middle;
+        }
+        .success {
+            color: #36b368;
+        }
+        .error {
+            color: #f56c6c;
+        }
+    </style>
+
+</head>
+<body>
+<form method="post" class="mb-4">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label>请输入原始文本：</label>
+            <textarea name="raw_text" class="form-control" rows="6" id="rawTextInput"></textarea>
+        </div>
+        <button type="reset" class="btn btn-toolbar" id="inputText">重置</button>
+        <button type="submit" class="btn btn-primary">识别并纠错</button>
+        <button onclick="clearAndPaste()" class="clear-paste-btn">清空后粘贴</button>
+        <a href="/add_sample/" class="btn btn-secondary">管理纠错库</a>
+    </form>
+
+<div class="container">
+
+        <div class="result">
+            <span class="label">处理结果（可直接编辑，点击复制按钮自动复制）：</span>
+
+            <div class="block-item">
+                <div class="block-title">文号：</div>
+                <textarea class="editable-input" id="docNoContent" rows="1" spellcheck="false">-</textarea>
+                <button class="copy-btn" onclick="copyBlock('docNoContent', 'docNoSuccess')">复制</button>
+                <span class="copy-success" id="docNoSuccess">✓ 已复制</span>
+            </div>
+
+            <div class="block-item">
+                <div class="block-title">发文单位：</div>
+                <textarea class="editable-input" id="deptContent" rows="3" spellcheck="false">-</textarea>
+                <button class="copy-btn" onclick="copyBlock('deptContent', 'deptSuccess')">复制</button>
+                <span class="copy-success" id="deptSuccess">✓ 已复制</span>
+            </div>
+
+            <div class="block-item">
+                <div class="block-title">文件标题：</div>
+                <textarea class="editable-input" id="titleContent" rows="4" spellcheck="false">-</textarea>
+                <button class="copy-btn" onclick="copyBlock('titleContent', 'titleSuccess')">复制</button>
+
+                <span class="copy-success" id="titleSuccess">✓ 已复制</span>
+                <span class="copy-success" id="instructionSuccess">✓ 已复制</span>
+
+            </div>
+            <div style="text-align: center;">
+                <button class="copy-btn" onclick="generateLeadershipInstruction()">省领导对《》的批示</button>
+                <button class="copy-btn" onclick="generateSignInstruction()">会签《》</button>
+                </div>
+
+            <div class="block-item" style="border-left-color: #42c979;">
+                <div class="block-title">完整内容：</div>
+                <div class="full-content-block" id="fullContent">-</div>
+            </div>
+        </div>
+
+        <div class="excel-upload-area">
+            <span class="label">数据管理（Excel导入）：</span>
+            <p style="margin: 0.5rem 0; font-size: 0.95rem;">
+                1. 下载模板 → 本地编辑（添加/修改规则） → 上传文件<br>
+                2. 支持格式：.xlsx / .xls
+            </p>
+            <input type="file" id="excelFile" accept=".xlsx, .xls" style="margin: 0.5rem 0;">
+            <span id="uploadStatus"></span>
+        </div>
+
+    </div>
+
+    <script>
+        // 1. 添加常用文号对照表示常量
+const DOC_NO_TEMPLATES = [
+    { prefix: '人社', suffix: '号', remark: '人力资源社会保障厅函件' },
+    { prefix: '人社部发', suffix: '号', remark: '人力资源社会保障部发文' },
+    { prefix: '人考', suffix: '号', remark: '人事考试中心函件' },
+    { prefix: '国办', suffix: '号', remark: '国务院办公厅发文' },
+    { prefix: '冀人社', suffix: '号', remark: '河北省人社厅函件' },
+    { prefix: '冀人社发', suffix: '号', remark: '河北省人社厅发文' },
+    { prefix: '人社厅', suffix: '号', remark: '人力资源社会保障厅发文' },
+    { prefix: '人社部函', suffix: '号', remark: '人力资源社会保障部函件' },
+    { prefix: '财社', suffix: '号', remark: '财政部社会保障司' },
+    { prefix: '财办社', suffix: '号', remark: '财政部办公厅社会保障' }
+];
+
+// 2. 修改错误校对数据结构，添加类型标识
+let titleErrorMap = [
+    { type: 'title', regex: /通知。$/, replace: '通知', remark: '多余标点' },
+    { type: 'title', regex: /通知，$/, replace: '通知', remark: '多余标点' },
+    { type: 'title', regex: /、$/, replace: '', remark: '多余标点' },
+    { type: 'title', regex: /提前下达下达/, replace: '提前下达', remark: '重复用词' },
+    { type: 'title', regex: /资金资金/, replace: '资金', remark: '重复用词' },
+    { type: 'title', regex: /预算预算/, replace: '预算', remark: '重复用词' },
+    { type: 'title', regex: /就业就业/, replace: '就业', remark: '重复用词' },
+    { type: 'title', regex: /布达/, replace: '下达', remark: '错别字' },
+    { type: 'title', regex: /予算/, replace: '预算', remark: '错别字' },
+    { type: 'title', regex: /补住/, replace: '补助', remark: '错别字' },
+    { type: 'title', regex: /就也/, replace: '就业', remark: '错别字' },
+    { type: 'title', regex: /资经/, replace: '资金', remark: '错别字' },
+    { type: 'title', regex: /(\d{4})年?/, replace: '$1年', remark: '格式错误' },
+    { type: 'title', regex: /二零(\d{2})年/, replace: '20$1年', remark: '格式错误' },
+    { type: 'title', regex: /就业补资金/, replace: '就业补助资金', remark: '漏字补全' },
+    { type: 'title', regex: /提前下(\d{4})年/, replace: '提前下达$1年', remark: '漏字补全' },
+    // 添加文号错误校对规则
+    { type: 'docNo', regex: /\[\s*(\d{4})\s*\]/, replace: '[$1]', remark: '年份括号内不应有空格' },
+    { type: 'docNo', regex: /(\d+)\s*号/, replace: '$1号', remark: '文号序号和号字间不应有空格' },
+    // 添加单位错误校对规则
+    { type: 'dept', regex: /人力资源和社会保障厅/, replace: '人社厅', remark: '单位简称标准化' },
+    { type: 'dept', regex: /人力资源社会保障厅/, replace: '人社厅', remark: '单位简称标准化' }
+];
+
+        let deptKeywords = [
+            { keyword: '财政部', remark: '中央部委' },
+            { keyword: '人力资源社会保障部', remark: '中央部委' },
+            { keyword: '省财政厅', remark: '地方厅局' },
+            { keyword: '省人社厅', remark: '地方厅局' },
+            { keyword: '省发改委', remark: '地方厅局' },
+            { keyword: '省教育厅', remark: '地方厅局' },
+            { keyword: '省卫健委', remark: '地方厅局' },
+            { keyword: '省民政厅', remark: '地方厅局' },
+            { keyword: '省公安厅', remark: '地方厅局' },
+            { keyword: '省交通厅', remark: '地方厅局' },
+            { keyword: '省水利厅', remark: '地方厅局' },
+            { keyword: '省农业农村厅', remark: '地方厅局' },
+            { keyword: '省住建厅', remark: '地方厅局' },
+            { keyword: '省生态环境厅', remark: '地方厅局' },
+            { keyword: '省应急管理厅', remark: '地方厅局' },
+            { keyword: '省市场监管局', remark: '地方厅局' },
+        ];
+
+        // 新增：明确的格式定义常量
+        const DOC_NO_PREFIXES = ['冀', '京', '津', '沪', '渝', '辽', '吉', '黑', '晋', '蒙', '苏', '浙', '皖', '闽', '赣', '鲁', '豫', '鄂', '湘', '粤', '桂', '琼', '川', '黔', '滇', '藏', '陕', '甘', '青', '宁', '新', '人社', '人考', '财', '教', '卫', '发改'];
+        // 完善后的单位起始关键词列表
+const DEPT_START_WORDS = [
+    '河北省',
+    '北京市',
+    '中共',
+    '省',
+    '市',
+    '[^省市]+?省',
+    '[^省市]+?市',
+    // 省委必须与具体机构名称组合，不能单独使用
+    '省委宣传部',
+    '省委组织部',
+    '省委办公厅',
+    '省委统战部',
+    '省委政法委',
+    '省委编办',
+    // 增加更多常见的省委下属机构
+    '省委党校',
+    '省委农工部',
+    '省委研究室',
+    '省委军民融合办',
+    '省委网信办',
+    // 优化正则表达式，确保"省委"后必须跟具体机构名称
+    '省委[^市省\s\u3000，。！；\s]+'
+];
+// 重要：移除单独的"省委"关键词，替换为"省委"后必须跟具体机构名称的规则
+// 使用正则表达式匹配"省委"后跟非空/非省市/非标点的机构名称（如省委宣传部、省委组织部等）
+        const DEPT_END_WORDS = ['委员会办公室', '局办公室', '厅办公室', '委员会', '学会', '办公室', '中心', '院', '部', '局', '厅', '办公厅', '领导小组'];
+        const TITLE_START_WORDS = ['关于', '征求', '会签', '商请', '印发', '转发'];
+        const TITLE_END_WORDS = ['意见的函','通知', '决定', '办法', '规定', '函', '请示》的批示', '意见', '方案', '通报', '批复', '请示'];
+
+        let docNo = '';
+        let dept = '';
+        let title = '';
+        let fullContent = '';
+
+        // Excel功能保持不变
+        function downloadExcelTemplate() {
+    const workbook = XLSX.utils.book_new();
+
+    // 修改工作表名称为"错误校对"
+    const titleErrorData = titleErrorMap.map(item => [
+        item.type,  // 添加类型列
+        item.regex.source,
+        item.replace,
+        item.remark
+    ]);
+    titleErrorData.unshift(['校对类型(title/docNo/dept)', '错误正则表达式', '替换内容', '备注']);
+    const titleErrorSheet = XLSX.utils.aoa_to_sheet(titleErrorData);
+
+    const deptKeywordData = deptKeywords.map(item => [
+        item.keyword,
+        item.remark
+    ]);
+    deptKeywordData.unshift(['单位关键词', '备注']);
+    const deptKeywordSheet = XLSX.utils.aoa_to_sheet(deptKeywordData);
+
+    // 新增常用文号对照表工作表
+    const docNoTemplateData = DOC_NO_TEMPLATES.map(item => [
+        item.prefix,
+        item.suffix,
+        item.remark
+    ]);
+    docNoTemplateData.unshift(['文号前缀', '文号后缀', '说明']);
+    const docNoTemplateSheet = XLSX.utils.aoa_to_sheet(docNoTemplateData);
+
+    XLSX.utils.book_append_sheet(workbook, titleErrorSheet, '错误校对');  // 修改工作表名称
+    XLSX.utils.book_append_sheet(workbook, deptKeywordSheet, '单位关键词库');
+    XLSX.utils.book_append_sheet(workbook, docNoTemplateSheet, '常用文号对照表');  // 新增工作表
+
+    XLSX.writeFile(workbook, '公文处理核心数据模板.xlsx');
+    alert('Excel模板已下载！\n请确保工作表名称为"错误校对"、"单位关键词库"和"常用文号对照表"（不可修改）');
+}
+
+        // 4. 修改Excel文件解析函数
+function parseExcelFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+
+                // 更新工作表名称检查
+                const sheetNames = workbook.SheetNames.map(name => name.trim().toLowerCase());
+                const requiredSheets = ['错误校对', '单位关键词库', '常用文号对照表'].map(name => name.toLowerCase());
+
+                // 检查缺失的工作表
+                const missingSheets = requiredSheets.filter(required =>
+                    !sheetNames.includes(required)
+                ).map(name => {
+                    if (name === '错误校对'.toLowerCase()) return '错误校对';
+                    if (name === '单位关键词库'.toLowerCase()) return '单位关键词库';
+                    return '常用文号对照表';
+                });
+
+                if (missingSheets.length > 0) {
+                    reject(`缺少必要工作表：${missingSheets.join('、')}\n请检查工作表名称是否与模板一致`);
+                    return;
+                }
+
+                // 解析错误校对表（更新名称）
+                const titleErrorSheetName = workbook.SheetNames.find(name =>
+                    name.trim().toLowerCase() === '错误校对'.toLowerCase()
+                );
+                const titleErrorSheet = workbook.Sheets[titleErrorSheetName];
+                const titleErrorAOA = XLSX.utils.sheet_to_json(titleErrorSheet, { header: 1 });
+                const newTitleErrorMap = [];
+
+                // 逐行解析并验证正则表达式
+                for (let i = 1; i < titleErrorAOA.length; i++) {
+                    const row = titleErrorAOA[i];
+                    if (!row[1] || !row[2]) continue; // 跳过空行，注意现在索引从1开始是正则表达式
+
+                    try {
+                        newTitleErrorMap.push({
+                            type: row[0] || 'title',  // 添加类型，默认为title
+                            regex: new RegExp(row[1], 'g'),
+                            replace: row[2],
+                            remark: row[3] || ''
+                        });
+                    } catch (err) {
+                        reject(`错误校对表第${i+1}行正则表达式无效：${err.message}`);
+                        return;
+                    }
+                }
+
+                // 解析单位关键词库表
+                const deptKeywordSheetName = workbook.SheetNames.find(name =>
+                    name.trim().toLowerCase() === '单位关键词库'.toLowerCase()
+                );
+                const deptKeywordSheet = workbook.Sheets[deptKeywordSheetName];
+                const deptKeywordAOA = XLSX.utils.sheet_to_json(deptKeywordSheet, { header: 1 });
+                const newDeptKeywords = deptKeywordAOA.slice(1)
+                    .filter(row => row[0])
+                    .map(row => ({
+                        keyword: row[0],
+                        remark: row[1] || ''
+                    }));
+
+                // 解析常用文号对照表
+                const docNoTemplateSheetName = workbook.SheetNames.find(name =>
+                    name.trim().toLowerCase() === '常用文号对照表'.toLowerCase()
+                );
+                const docNoTemplateSheet = workbook.Sheets[docNoTemplateSheetName];
+                const docNoTemplateAOA = XLSX.utils.sheet_to_json(docNoTemplateSheet, { header: 1 });
+                const newDocNoTemplates = docNoTemplateAOA.slice(1)
+                    .filter(row => row[0])
+                    .map(row => ({
+                        prefix: row[0],
+                        suffix: row[1] || '号',
+                        remark: row[2] || ''
+                    }));
+
+                if (newTitleErrorMap.length === 0 && newDeptKeywords.length === 0 && newDocNoTemplates.length === 0) {
+                    reject('Excel文件内容为空，请检查是否填写了有效数据');
+                    return;
+                }
+
+                resolve({ newTitleErrorMap, newDeptKeywords, newDocNoTemplates });
+            } catch (error) {
+                reject(`解析失败：${error.message}\n可能是文件格式错误或内容损坏`);
+            }
+        };
+        reader.onerror = function() {
+            reject('文件读取失败，请检查文件是否可访问或未被占用');
+        };
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+// 5. 修改Excel文件上传事件处理
+function handleExcelFileUpload() {
+    document.getElementById('excelFile').addEventListener('change', async function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const uploadStatus = document.getElementById('uploadStatus');
+        uploadStatus.className = '';
+        uploadStatus.style.padding = '4px 8px';
+        uploadStatus.style.borderRadius = '3px';
+        uploadStatus.textContent = '正在处理文件...';
+
+        // 验证文件类型
+        const fileExt = file.name.split('.').pop().toLowerCase();
+        if (!['xlsx', 'xls'].includes(fileExt)) {
+            uploadStatus.className = 'error';
+            uploadStatus.textContent = '✗ 请上传.xlsx或.xls格式的Excel文件';
+            return;
+        }
+
+        try {
+            uploadStatus.textContent = '正在检查工作表结构...';
+            const { newTitleErrorMap, newDeptKeywords, newDocNoTemplates } = await parseExcelFile(file);
+
+            // 更新数据
+            titleErrorMap = newTitleErrorMap;
+            deptKeywords = newDeptKeywords;
+            if (newDocNoTemplates.length > 0) {
+                DOC_NO_TEMPLATES.length = 0;
+                newDocNoTemplates.forEach(template => DOC_NO_TEMPLATES.push(template));
+            }
+
+            // 成功提示
+            uploadStatus.className = 'success';
+            uploadStatus.style.backgroundColor = 'rgba(54, 179, 104, 0.1)';
+            uploadStatus.textContent = `✓ 导入成功！错误校对规则(${titleErrorMap.length}条)，单位关键词(${deptKeywords.length}条)，常用文号(${DOC_NO_TEMPLATES.length}条)`;
+
+            // 3秒后自动清除提示
+            setTimeout(() => {
+                uploadStatus.textContent = '';
+                uploadStatus.style.backgroundColor = '';
+            }, 3000);
+
+        } catch (error) {
+            uploadStatus.className = 'error';
+            uploadStatus.style.backgroundColor = 'rgba(245, 108, 108, 0.1)';
+            uploadStatus.textContent = `✗ ${error}`;
+        } finally {
+            document.getElementById('excelFile').value = '';
+        }
+    });
+}
+
+        // 核心处理辅助函数
+        function clearOldResult() {
+            docNo = '';
+            dept = '';
+            title = '';
+            fullContent = '';
+            document.getElementById('docNoContent').value = '-';
+            document.getElementById('deptContent').value = '-';
+            document.getElementById('titleContent').value = '-';
+            document.getElementById('fullContent').textContent = '-';
+            document.querySelectorAll('.copy-success').forEach(elem => {
+                elem.style.display = 'none';
+            });
+        }
+
+        function replaceSimilarToJi(text) {
+            const similarChars = /[翼骥]/g;
+            return text.replace(similarChars, '冀');
+        }
+
+        // 7. 修改错误校对功能，支持多类型
+    // 应用校对规则 - 增加处理重复字符的规则
+function correctContentErrors(content, type) {
+    let correctedContent = content;
+
+    // 首先处理重复字符问题
+    // 处理重复的单位名称开头字符，如"财财政部"->"财政部"
+    correctedContent = correctedContent.replace(/([\u4e00-\u9fa5])(\1+)/g, (match, p1) => p1);
+    // 处理重复的顿号，如"、、"->"、"
+    correctedContent = correctedContent.replace(/、+/g, '、');
+
+    // 然后应用其他校对规则
+    titleErrorMap
+        .filter(item => !item.type || item.type === type)
+        .forEach(item => {
+            correctedContent = correctedContent.replace(item.regex, item.replace);
+        });
+
+    return correctedContent;
+}
+
+    // 在提取内容后应用校对
+    if (docNo && docNo !== '未识别到文号') {
+        docNo = correctContentErrors(docNo, 'docNo');
+    }
+
+    if (dept && dept !== '未识别到发文单位') {
+        dept = correctContentErrors(dept, 'dept');
+    }
+
+    if (title) {
+        title = correctContentErrors(title, 'title');
+    }
+
+        // 更新完整内容显示的函数
+    function updateFullContent() {
+    // 获取文号输入框的值，并去除前后空白字符，如果为空则设为空字符串
+    const currentDocNo = document.getElementById('docNoContent').value.trim() || '';
+    // 获取单位输入框的值，并去除前后空白字符，如果为空则设为空字符串
+    const currentDept = document.getElementById('deptContent').value.trim() || '';
+    // 获取标题输入框的值，并去除前后空白字符，如果为空则设为空字符串
+    const currentTitle = document.getElementById('titleContent').value.trim() || '';
+    // 构建完整内容字符串，格式为"文号 单位 标题"，单位前只在有单位时添加空格
+    fullContent = `${currentDocNo}${currentDept ? ' ' + currentDept : ''} ${currentTitle}`;
+    // 将完整内容更新到页面显示，如果内容为空则显示提示信息
+    document.getElementById('fullContent').textContent = fullContent || '未识别到有效公文内容';
+}
+
+        // 正则特殊字符转义函数
+        function escapeRegExp(str) {
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        // 优化：单位处理核心函数
+// 优化：单位处理核心函数
+function processDepts(rawDeptText) {
+    if (!rawDeptText) return '';
+
+    // 从excel表格中的"单位关键词库"中读取单位关键词。匹配单位关键词，若匹配成功，替换单位名称，若有简称，则替换简称
+    let processedDeptText = rawDeptText;
+
+    // 安全获取excelData和单位关键词库
+    const safeExcelData = window.excelData || {};
+    const deptKeywords = safeExcelData.deptKeywords;
+
+    // 尝试使用Excel中的关键词库进行匹配和替换
+    if (Array.isArray(deptKeywords) && deptKeywords.length > 0) {
+        // 按关键词长度降序排序，优先匹配较长的关键词
+        const sortedKeywords = [...deptKeywords].sort((a, b) => {
+            // 确保关键词对象结构正确
+            const lenA = (a && typeof a === 'object' && (a.fullName || a.name)) ? (a.fullName || a.name).length : 0;
+            const lenB = (b && typeof b === 'object' && (b.fullName || b.name)) ? (b.fullName || b.name).length : 0;
+            return lenB - lenA;
+        });
+
+        // 找出所有匹配的单位关键词
+        const matchedKeywords = [];
+        for (const keyword of sortedKeywords) {
+            if (keyword && typeof keyword === 'object') {
+                // 支持多种关键词属性名称格式
+                const fullName = keyword.fullName || keyword.name || '';
+                const shortName = keyword.shortName || keyword.abbr || keyword.jiancheng || '';
+
+                // 检查是否匹配河北省的完整名称
+                const hebeiFullName = '河北省' + fullName;
+
+                // 检查完整名称（包括带"河北省"前缀）
+                if (fullName && (processedDeptText.includes(hebeiFullName) || processedDeptText.includes(fullName))) {
+                    // 记录匹配的关键词
+                    matchedKeywords.push({
+                        fullName: processedDeptText.includes(hebeiFullName) ? hebeiFullName : fullName,
+                        shortName: shortName || fullName
+                    });
+                }
+            }
+        }
+
+        // 如果找到了匹配的关键词，使用它们构建单位列表
+        if (matchedKeywords.length > 0) {
+            // 确保单位按在原文本中出现的顺序排列
+            matchedKeywords.sort((a, b) => {
+                return processedDeptText.indexOf(a.fullName) - processedDeptText.indexOf(b.fullName);
+            });
+
+            // 提取简称或全称
+            return matchedKeywords.map(k => k.shortName).join('、');
+        }
+    }
+
+    // 如果Excel关键词库没有匹配到，使用原来的正则匹配逻辑
+    // 1. 构建单位识别正则（确保包含完整结尾词）
+    const deptStartRegex = DEPT_START_WORDS
+        .map(word => escapeRegExp(word))
+        .join('|');
+    const deptEndRegex = DEPT_END_WORDS
+        .sort((a, b) => b.length - a.length) // 长结尾词优先匹配
+        .map(word => escapeRegExp(word))
+        .join('|');
+
+    // 精确匹配：以指定词开头且以指定词结尾
+    const fullDeptRegex = new RegExp(`(${deptStartRegex})(.*?)(${deptEndRegex})`, 'g');
+
+    // 2. 提取所有匹配的单位
+    const matchedDepts = [];
+    let match;
+    let tempText = processedDeptText; // 使用处理后的文本
+
+    // 使用exec循环确保所有匹配都被找到
+    while ((match = fullDeptRegex.exec(tempText)) !== null) {
+        let fullDept = match[1] + match[2] + match[3];
+        // 标准化处理
+        fullDept = fullDept
+            .replace(/河北省/g, '省')
+            .replace(/中共河北省委/g, '省委')
+            .replace(/省省/g, '省');
+
+        if (!matchedDepts.includes(fullDept)) {
+            matchedDepts.push(fullDept);
+        }
+
+        // 防止无限循环
+        if (match.index === fullDeptRegex.lastIndex) {
+            fullDeptRegex.lastIndex++;
+        }
+    }
+
+    // 3. 容错处理
+    if (matchedDepts.length === 0) {
+        // 尝试仅匹配结尾词
+        const fallbackRegex = new RegExp(`(.*?)(${deptEndRegex})`, 'g');
+        while ((match = fallbackRegex.exec(tempText)) !== null) {
+            const deptWithEnd = match[1] + match[2];
+            if (!matchedDepts.includes(deptWithEnd.trim())) {
+                matchedDepts.push(deptWithEnd.trim());
+            }
+            if (match.index === fallbackRegex.lastIndex) {
+                fallbackRegex.lastIndex++;
+            }
+        }
+        return matchedDepts.length > 0 ? matchedDepts.join('、') : '未识别到有效单位';
+    }
+
+    return matchedDepts.join('、');
+}
+
+        // 核心处理功能（优化版）
+        // 修复主要问题：processDocument函数的语法错误和结构混乱
+function processDocument() {
+    clearOldResult();
+    document.getElementById('loading').style.display = 'inline';
+
+    try {
+        let input = document.getElementById('inputText').value.trim();
+        if (!input) {
+            document.getElementById('loading').style.display = 'none';
+            return;
+        }
+
+        // 【第一步：文本预处理】
+        input = replaceSimilarToJi(input);
+        let rawText = input
+            .replace(/\s+/g, '')
+            .replace(/【|〔|［/g, '[')
+            .replace(/】|〕|］/g, ']');
+        let remainText = rawText; // 只声明一次remainText变量
+
+        // 添加缺失的无效前后缀定义
+        const INVALID_PREFIXES = ['关于', '通知', '决定', '办法', '规定', '意见', '方案', '通报', '批复', '请示', '函'];
+        const INVALID_SUFFIXES = [ '函', '意见的函', '通知', '决定', '办法', '规定', '意见', '方案', '通报', '批复', '请示'];
+
+        // 【第一步：识别文件标题】
+        let title = '';
+
+        // 构建标题识别正则
+        const titleStartWords = ['关于', '征求', '会签', '商请', '印发', '转发'];
+        const titleEndWords = ['通知', '函', '决定', '办法', '规定', '意见的函', '意见', '方案', '通报', '批复', '请示'];
+
+        // 先对结束词按长度降序排序，确保更长的结束词优先匹配
+        const sortedTitleEndWords = [...titleEndWords].sort((a, b) => b.length - a.length);
+
+        const titleStartRegex = titleStartWords.map(word => escapeRegExp(word)).join('|');
+        const titleEndRegex = sortedTitleEndWords.map(word => escapeRegExp(word)).join('|');
+
+        // 构建标题正则：第一次出现的开始词到最后一次出现的结束词
+        const titleRegex = new RegExp(`(${titleStartRegex})(.*?)(${titleEndRegex})`, 'g');
+        let match;
+        let titleMatches = [];
+
+        while ((match = titleRegex.exec(remainText)) !== null) {
+            titleMatches.push({ text: match[0], index: match.index });
+
+            // 防止无限循环
+            if (match.index === titleRegex.lastIndex) {
+                titleRegex.lastIndex++;
+            }
+        }
+
+        if (titleMatches.length > 0) {
+            // 找到最后出现的结束词对应的标题（因为标题可能嵌套）
+            let lastEndPos = -1;
+            let bestTitleMatch = null;
+
+            for (const endWord of sortedTitleEndWords) {
+                const pos = remainText.lastIndexOf(endWord);
+                if (pos > lastEndPos) {
+                    lastEndPos = pos;
+                    // 找到这个结束词对应的最早的开始词
+                    const textBeforeEnd = remainText.substring(0, pos);
+                    let earliestStartPos = Infinity;
+
+                    for (const startWord of titleStartWords) {
+                        const startPos = textBeforeEnd.indexOf(startWord);
+                        if (startPos !== -1 && startPos < earliestStartPos) {
+                            earliestStartPos = startPos;
+                        }
+                    }
+
+                    if (earliestStartPos !== Infinity) {
+                        const candidate = remainText.substring(earliestStartPos, pos + endWord.length);
+                        bestTitleMatch = candidate;
+                        break;
+                    }
+                }
+            }
+
+            if (bestTitleMatch) {
+                title = bestTitleMatch;
+                // 从剩余文本中移除已识别的标题
+                remainText = remainText.replace(title, '').trim();
+            }
+        }
+
+        if (!title) {
+            title = '未识别到文件标题';
+        } else {
+            // 应用标题校对规则
+            title = correctContentErrors(title, 'title').replace(/^[\s\u3000]+|[\s\u3000]+$/g, '');
+        }
+
+        // 【第二步：提取文号】
+        let docNo = '';
+
+        // 1. 构建文号识别正则
+const leftBrackets = '[\\[\\(\\u3010\\uff08]';
+const rightBrackets = '[\\]\\)\\u3011\\uff09]';
+
+        // 优先使用DOC_NO_TEMPLATES中的模板进行匹配
+        for (const template of DOC_NO_TEMPLATES) {
+            // 确保正确转义模板前缀和后缀，并允许多字前缀
+            const templateRegex = new RegExp(`${escapeRegExp(template.prefix)}\\s*${leftBrackets}\\s*(\\d{4})\\s*${rightBrackets}\\s*(\\d+)\\s*${escapeRegExp(template.suffix)}`, 'g');
+            let match;
+
+            while ((match = templateRegex.exec(remainText)) !== null) {
+                const candidate = match[0];
+                const index = remainText.indexOf(candidate);
+
+                // 检查文号前后是否有关键词
+                const beforeText = remainText.substring(0, index);
+                const afterText = remainText.substring(index + candidate.length);
+
+                const hasInvalidPrefix = INVALID_PREFIXES.some(prefix => beforeText.includes(prefix));
+                const hasInvalidSuffix = INVALID_SUFFIXES.some(suffix => afterText.includes(suffix));
+
+                if (!hasInvalidPrefix && !hasInvalidSuffix) {
+                    docNo = candidate;
+                    remainText = remainText.replace(candidate, '').trim();
+                    break;
+                }
+            }
+
+            // 找到匹配项后立即跳出循环
+            if (docNo) break;
+        }
+
+        // 如果模板匹配失败，使用DOC_NO_PREFIXES进行匹配
+        if (!docNo) {
+            // 确保DOC_NO_PREFIXES包含组合前缀
+            if (!DOC_NO_PREFIXES.includes('财教')) {
+                DOC_NO_PREFIXES.push('财教');
+            }
+
+            const prefixesRegex = DOC_NO_PREFIXES.map(p => escapeRegExp(p)).join('|');
+            const docNoRegex = new RegExp(`(${prefixesRegex}[\u4e00-\u9fa5]*)${leftBrackets}(\\d{4})${rightBrackets}(\\d+)号`, 'g');
+            let match;
+
+            while ((match = docNoRegex.exec(remainText)) !== null) {
+                const candidate = match[0];
+                const index = remainText.indexOf(candidate);
+
+                // 检查文号前后是否有关键词
+                const beforeText = remainText.substring(0, index);
+                const afterText = remainText.substring(index + candidate.length);
+
+                const hasInvalidPrefix = INVALID_PREFIXES.some(prefix => beforeText.includes(prefix));
+                const hasInvalidSuffix = INVALID_SUFFIXES.some(suffix => afterText.includes(suffix));
+
+                if (!hasInvalidPrefix && !hasInvalidSuffix) {
+                    docNo = candidate;
+                    remainText = remainText.replace(candidate, '').trim();
+                    break;
+                }
+            }
+        }
+
+        // 如果仍然没有匹配到，尝试更宽松的匹配
+        if (!docNo) {
+            const simpleRegex = new RegExp(`[\u4e00-\u9fa5]+${leftBrackets}\\d{4}${rightBrackets}\\d+号`, 'g');
+            let match;
+
+            while ((match = simpleRegex.exec(remainText)) !== null) {
+                const candidate = match[0];
+                const index = remainText.indexOf(candidate);
+
+                // 检查文号前后是否有关键词
+                const beforeText = remainText.substring(0, index);
+                const afterText = remainText.substring(index + candidate.length);
+
+                const hasInvalidPrefix = INVALID_PREFIXES.some(prefix => beforeText.includes(prefix));
+                const hasInvalidSuffix = INVALID_SUFFIXES.some(suffix => afterText.includes(suffix));
+
+                if (!hasInvalidPrefix && !hasInvalidSuffix) {
+                    docNo = candidate;
+                    remainText = remainText.replace(candidate, '').trim();
+                    break;
+                }
+            }
+        }
+
+        if (!docNo) {
+            docNo = '未识别到文号';
+        }
+
+        // 【第三步：识别来文单位】
+        let dept = '';
+
+        // 如果还有剩余文本，尝试从中提取单位
+        if (remainText && remainText.trim()) {
+            // 使用专门的processDepts函数处理单位识别，这个函数会考虑Excel中的单位关键词库
+            dept = processDepts(remainText.trim());
+
+            // 应用单位校对规则
+            if (dept) {
+                dept = correctContentErrors(dept, 'dept');
+            }
+        } else {
+            dept = '未识别到发文单位';
+        }
+
+        // 简化单位处理逻辑，只保留必要的去重和格式处理
+        if (dept && dept !== '未识别到发文单位' && dept !== '未识别到有效单位') {
+            // 去除重复顿号
+            dept = dept.replace(/、+/g, '、');
+
+            // 移除"河北"前缀
+            dept = dept.replace(/河北省/g, '省');
+        }
+
+        // 应用校对规则
+        if (docNo && docNo !== '未识别到文号') {
+            docNo = correctContentErrors(docNo, 'docNo');
+        }
+
+        // 填充结果
+        document.getElementById('docNoContent').value = docNo;
+        document.getElementById('deptContent').value = dept;
+        document.getElementById('titleContent').value = title;
+        updateFullContent();
+
+        // 绑定实时更新事件
+        ['docNoContent', 'deptContent', 'titleContent'].forEach(id => {
+            const elem = document.getElementById(id);
+            elem.removeEventListener('input', updateFullContent);
+            elem.addEventListener('input', updateFullContent);
+        });
+    } catch (error) {
+        console.error('处理失败:', error);
+        alert(`处理失败：${error.message}`);
+    } finally {
+        document.getElementById('loading').style.display = 'none';
+    }
+}
+
+// 确保correctContentErrors函数只定义一次
+// 确保correctContentErrors函数只定义一次
+function correctContentErrors(content, type) {
+    let correctedContent = content;
+
+    // 首先处理重复字符问题
+    // 处理重复的单位名称开头字符，如"财财政部"->"财政部"
+    correctedContent = correctedContent.replace(/([\u4e00-\u9fa5])(\1+)/g, (match, p1) => p1);
+    // 处理重复的顿号，如"、、"->"、"
+    correctedContent = correctedContent.replace(/、+/g, '、');
+
+    // 对于文号类型，确保括号格式标准化为方括号
+    if (type === 'docNo') {
+        // 将中文括号转换为标准方括号
+        correctedContent = correctedContent.replace(/\（/g, '[').replace(/\）/g, ']');
+        // 将英文括号转换为标准方括号（如果需要）
+        correctedContent = correctedContent.replace(/\(/g, '[').replace(/\)/g, ']');
+    }
+
+    // 然后应用其他校对规则
+    titleErrorMap
+        .filter(item => !item.type || item.type === type)
+        .forEach(item => {
+            correctedContent = correctedContent.replace(item.regex, item.replace);
+        });
+
+    return correctedContent;
+}
+
+// 确保clearAndPaste函数正确实现
+function clearAndPaste() {
+    const textarea = document.getElementById('rawTextInput');
+    textarea.value = '';
+    navigator.clipboard.readText().then(text => {
+        textarea.value = text;
+    }).catch(err => {
+        console.error('粘贴失败:', err);
+        alert('无法读取剪贴板内容，请手动粘贴');
+    });
+}
+
+
+// 生成并复制"省领导对《》的批示"格式内容
+function generateLeadershipInstruction() {
+    // 获取文件标题内容
+    const title = document.getElementById('titleContent').value.trim();
+
+    // 如果标题为空或为默认值，则显示提示
+    if (!title || title === '-') {
+        alert('请先识别文件标题');
+        return;
+    }
+
+    // 检查是否已经包含"省领导对《"前缀，避免重复添加
+    if (title.startsWith('省领导对《') && title.endsWith('》的批示')) {
+        // 已经是标准格式，直接复制现有的内容
+        const tempInput = document.createElement('textarea');
+        tempInput.value = title;
+        tempInput.style.position = 'absolute';
+        tempInput.style.left = '-9999px';
+        document.body.appendChild(tempInput);
+
+        // 选择并复制内容
+        tempInput.select();
+        document.execCommand('copy');
+
+        // 移除临时输入框
+        document.body.removeChild(tempInput);
+
+        // 显示复制成功提示
+        const successEl = document.getElementById('instructionSuccess');
+        successEl.style.display = 'inline';
+        setTimeout(() => {
+            successEl.style.display = 'none';
+        }, 2000);
+
+        return;
+    }
+
+    // 生成"省领导对《标题》的批示"格式内容
+    const instruction = `省领导对《${title}》的批示`;
+
+    // 创建临时输入框用于复制
+    const tempInput = document.createElement('textarea');
+    tempInput.value = instruction;
+    tempInput.style.position = 'absolute';
+    tempInput.style.left = '-9999px';
+    document.body.appendChild(tempInput);
+
+    // 选择并复制内容
+    tempInput.select();
+    document.execCommand('copy');
+
+    // 移除临时输入框
+    document.body.removeChild(tempInput);
+
+    // 复制成功后，替换标题文本框中的内容
+    document.getElementById('titleContent').value = instruction;
+
+    // 显示复制成功提示
+    const successEl = document.getElementById('instructionSuccess');
+    successEl.style.display = 'inline';
+    setTimeout(() => {
+        successEl.style.display = 'none';
+    }, 2000);
+}
+
+// 在现有脚本中添加copyBlock函数
+// 修改copyBlock函数，使其接受第二个参数（成功提示元素ID）
+function copyBlock(elementId, successElementId) {
+    try {
+        // 获取要复制的元素
+        const element = document.getElementById(elementId);
+        if (!element) {
+            console.error('未找到元素:', elementId);
+            return;
+        }
+
+        // 获取元素内容
+        let textToCopy = element.value || element.textContent || '';
+
+        if (!textToCopy || textToCopy === '-') {
+            alert('没有可复制的内容');
+            return;
+        }
+
+        // 使用现代的Clipboard API进行复制
+        if (navigator.clipboard && window.isSecureContext) {
+            // 现代浏览器，使用Clipboard API
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                // 显示复制成功提示，传入成功提示元素ID
+                showCopySuccess(successElementId || 'instructionSuccess');
+            }).catch(err => {
+                console.error('复制失败:', err);
+                // 降级到传统方法，传入成功提示元素ID
+                fallbackCopyTextToClipboard(textToCopy, successElementId || 'instructionSuccess');
+            });
+        } else {
+            // 降级到传统方法，传入成功提示元素ID
+            fallbackCopyTextToClipboard(textToCopy, successElementId || 'instructionSuccess');
+        }
+    } catch (error) {
+        console.error('复制功能执行错误:', error);
+    }
+}
+
+// 降级复制方法也需要修改，接受成功提示元素ID参数
+function fallbackCopyTextToClipboard(text, successElementId) {
+    try {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+
+        // 避免滚动到页面底部
+        textArea.style.top = '0';
+        textArea.style.left = '0';
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        let successful = false;
+        try {
+            successful = document.execCommand('copy');
+        } catch (err) {
+            console.error('execCommand复制失败:', err);
+        }
+
+        document.body.removeChild(textArea);
+
+        if (successful) {
+            showCopySuccess(successElementId || 'instructionSuccess');
+        } else {
+            alert('复制失败，请手动选择并复制');
+        }
+    } catch (error) {
+        console.error('降级复制方法失败:', error);
+        alert('复制失败，请手动选择并复制');
+    }
+}
+
+// 修改showCopySuccess函数，使用传入的成功提示元素ID
+function showCopySuccess(successElementId) {
+    // 尝试显示指定的复制成功提示元素
+    const successEl = document.getElementById(successElementId);
+    if (successEl) {
+        successEl.style.display = 'inline';
+        setTimeout(() => {
+            successEl.style.display = 'none';
+        }, 2000);
+    } else {
+        // 如果没有找到指定的成功提示元素，显示通用提示
+        alert('复制成功');
+    }
+}
+
+
+// 生成并复制"会签《标题》"格式内容
+function generateSignInstruction() {
+    // 获取文件标题内容
+    const title = document.getElementById('titleContent').value.trim();
+
+    // 如果标题为空或为默认值，则显示提示
+    if (!title || title === '-') {
+        alert('请先识别文件标题');
+        return;
+    }
+
+    // 检查是否已经包含"会签《"前缀，避免重复添加
+    if (title.startsWith('会签《') && title.endsWith('》')) {
+        // 已经是标准格式，直接复制现有的内容
+        const tempInput = document.createElement('textarea');
+        tempInput.value = title;
+        tempInput.style.position = 'absolute';
+        tempInput.style.left = '-9999px';
+        document.body.appendChild(tempInput);
+
+        // 选择并复制内容
+        tempInput.select();
+        document.execCommand('copy');
+
+        // 移除临时输入框
+        document.body.removeChild(tempInput);
+
+        // 显示复制成功提示
+        const successEl = document.getElementById('instructionSuccess');
+        successEl.style.display = 'inline';
+        setTimeout(() => {
+            successEl.style.display = 'none';
+        }, 2000);
+
+        return;
+    }
+
+    // 生成"会签《标题》"格式内容
+    const instruction = `会签《${title}》`;
+
+    // 创建临时输入框用于复制
+    const tempInput = document.createElement('textarea');
+    tempInput.value = instruction;
+    tempInput.style.position = 'absolute';
+    tempInput.style.left = '-9999px';
+    document.body.appendChild(tempInput);
+
+    // 选择并复制内容
+    tempInput.select();
+    document.execCommand('copy');
+
+    // 移除临时输入框
+    document.body.removeChild(tempInput);
+
+    // 复制成功后，替换标题文本框中的内容
+    document.getElementById('titleContent').value = instruction;
+
+    // 显示复制成功提示
+    const successEl = document.getElementById('instructionSuccess');
+    successEl.style.display = 'inline';
+    setTimeout(() => {
+        successEl.style.display = 'none';
+    }, 2000);
+}
+
+
+// 初始化
+window.onload = function() {
+    processDocument();
+};
+    </script>
+</body>
+</html>

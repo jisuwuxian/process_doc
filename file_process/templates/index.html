@@ -1,0 +1,74 @@
+
+{% extends 'html_template.html' %}
+{% block content %}
+{% load static %}
+    <h2>公文智能提取与纠错</h2>
+    <form method="post" class="mb-4">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label>请输入原始文本：</label>
+            <textarea name="raw_text" class="form-control" rows="6" id="rawTextInput"></textarea>
+        </div>
+        <button type="reset" class="btn btn-toolbar" id="inputText">重置</button>
+        <button type="submit" class="btn btn-primary">识别并纠错</button>
+        <button onclick="clearAndPaste()" class="clear-paste-btn">清空后粘贴</button>
+        <a href="/add_sample/" class="btn btn-secondary">管理纠错库</a>
+    </form>
+<hr/>
+    <div class="row">
+        <div class="col-md-8">
+            <label>识别出的标题：</label>
+            <input type="text" class="form-control" value="{{ result.title }}">
+            <hr/>
+        </div>
+        <hr/>
+        <div class="col-md-8">
+            <label>识别出的文号：</label>
+            <input type="text" class="form-control" value="{{ result.number }}">
+        </div>
+        <div class="col-md-8">
+            <label>识别出的来文单位：</label>
+            <input type="text" class="form-control" value="{{ result.unit }}">
+        </div>
+    </div>
+
+<div>
+    <h4>示例图片：</h4>
+    <img src="{% static 'img/1.jpg' %}" alt="示例图片" class="img-fluid">
+</div>
+    <script>
+    // 确保clearAndPaste函数正确实现
+function clearAndPaste() {
+
+    // 修复：确保正确获取文本框元素并处理可能的null情况
+    const textarea = document.getElementById('rawTextInput');
+    textarea.value = clipboard_content
+    if (!textarea) {
+        console.error('未找到rawTextInput元素');
+        alert('无法找到输入框，请刷新页面重试');
+        return;
+    }
+
+    textarea.value = '';
+
+    // 修复：添加剪贴板API支持检查
+    if (!navigator.clipboard) {
+        alert('您的浏览器不支持剪贴板功能，请手动粘贴');
+        return;
+    }
+
+    navigator.clipboard.readText().then(text => {
+        if (text) {
+            textarea.value = text;
+        } else {
+            alert('剪贴板为空');
+        }
+    }).catch(err => {
+        console.error('粘贴失败:', err);
+        // 修复：提供更具体的错误信息
+        alert(`无法读取剪贴板内容: ${err.message}\n请确保已授予剪贴板访问权限或尝试手动粘贴`);
+    });
+}
+</script>
+
+{% endblock %}

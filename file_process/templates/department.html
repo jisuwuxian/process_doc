@@ -1,0 +1,67 @@
+{% extends 'html_template.html' %}
+{% block content %}
+
+
+<div name="department-form">
+<h1>部门管理</h1>
+    <form method="post">
+        {% csrf_token %}
+        <label for="full_name">部门全称：</label>
+        <input type="text" id="full_name" name="full_name" required><br>
+
+        <label for="short_name">部门简称：</label>
+        <input type="text" id="short_name" name="short_name" required><br>
+
+        <input type="submit" value="保存">
+    </form>
+
+    <h2>已有的部门</h2>
+    <div>
+        <a class="btn btn-success" href="/department_add/" target="_parent">新增部门</a>
+    </div>
+
+<div class="panel panel-default">
+      <!-- Default panel contents -->
+      <div class="panel-heading">Panel heading</div>
+      <div class="panel-body">
+        <p> <span class="glyphicon glyphicon-th-list" aria-hidden="true"></span>这是已有的部门列表：</p>
+      </div>
+
+      <!-- Table -->
+      <table class="table">
+        <thead>
+          <tr>
+            <th>部门id</th>
+            <th>部门全称</th>
+            <th>部门简称</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for unit in units %}
+          <tr>
+            <td>{{ unit.id }}</td>
+            <td>{{ unit.full_name }}</td>
+            <td>{{ unit.short_name }}</td>
+            <td>
+                <a class="btn btn-primary btn-sm" href="/department/{{ unit.id }}/edit/">编辑</a>
+                <a class="btn btn-danger btn-sm" href="/department_del/?nid={{ unit.id }}">删除</a>
+            </td>
+          </tr>
+          {% endfor %}
+
+        </tbody>
+      </table>
+    </div>
+<div>
+ <form action="/department/" method="get">
+<nav aria-label="...">
+      <ul class="pagination">
+        {{ page_list_str }}
+
+          </ul>
+   </nav>
+     </form>
+</div>
+
+{% endblock %}

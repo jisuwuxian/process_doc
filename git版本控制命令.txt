@@ -26,3 +26,11 @@ git merge 要合并的分支
 
 删除分支
 git branch-d 分支名称
+
+git remote add origin  https://github.com/jisuwuxian/process_doc.git #上传代码版本
+
+git branch -M main
+
+git push -u origin main
+
+git clone  远程地址#克隆代码

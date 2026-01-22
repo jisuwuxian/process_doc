@@ -1,0 +1,62 @@
+{% extends 'html_template.html' %}
+{% block content %}
+<div name="employee">
+    <h1>员工管理</h1>
+    <div>
+        <a href="/employee_add/" class="btn btn-primary btn-primary">增加员工</a>
+    </div>
+
+    <div class="bs-example" data-example-id="table-within-panel">
+    <div class="panel panel-default">
+      <!-- Default panel contents -->
+      <div class="panel-heading"></div>
+      <div class="panel-body">
+        <p>员工列表：</p>
+      </div>
+
+      <!-- Table -->
+      <table class="table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>ID</th>
+            <th>姓名</th>
+            <th>性别</th>
+            <th>年龄</th>
+            <th>账户</th>
+            <th>入职时间</th>
+            <th>部门</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for employee in employees %}
+        <tr>
+            <th scope="row">{{ forloop.counter }}</th>
+            <td>{{ employee.id }}</td>
+            <td>{{ employee.name }}</td>
+            <td>{{ employee.get_gender_display }}</td> <!-- 在模型中定义了gender_choices，所以可以使用get_gender_display方法（HTML中不加括号） -->
+            <td>{{ employee.age }}</td>
+            <td>{{ employee.account }}</td>
+            <td>{{ employee.create_time|date:"Y-m-d" }}</td> <!-- 日期格式化 -->
+            <td>{{ employee.department.short_name }}</td>  <!-- 部门名称 -->
+             <td>
+                <a class="btn btn-primary btn-sm" href="/employee/{{ employee.id }}/edit/">编辑</a>
+                <a class="btn btn-danger btn-sm" href="/employee_del/?nid={{ employee.id }}">删除</a>
+            </td>
+        </tr>
+        {% endfor %}
+
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+    <div>
+        <nav aria-label="...">
+            <ul class="pagination">
+                {{ page_list_str }}
+            </ul>
+        </nav>
+    </div>
+{% endblock %}

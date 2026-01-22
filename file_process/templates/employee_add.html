@@ -1,0 +1,33 @@
+{% extends 'html_template.html' %}
+{%  load static %}
+{% block css %}
+    <link rel="stylesheet" href="{% static 'plugins/bootstrap-3.4.1-dist/css/bootstrap-datepicker.min.css' %}">
+{% endblock %}
+{% block content %}
+<div name="employee">
+    <h1>增加员工</h1>
+
+  <div name="department-edit">
+    <form action="" method="post" novalidate>
+        {% csrf_token %}
+        {{ form.as_p }}
+        <input type="submit" class="btn btn-primary" value="提 交">
+    </form>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'plugins/bootstrap-3.4.1-dist/js/bootstrap-datepicker.min.js' %}"></script>
+    <script src="{% static 'plugins/bootstrap-3.4.1-dist/locales/bootstrap-datepicker.zh-CN.min.js' %}"></script>
+    <script>
+        $(function (){
+            $('#id_create_time').datepicker({
+                format: 'yyyy-mm-dd',
+                startDate: '0',
+                languag: 'zh-CN',
+                autoclose: true
+            })
+
+        });
+    </script>
+{% endblock %}
