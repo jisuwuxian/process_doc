@@ -1,9 +1,9 @@
-git init
-git status
-git add.
-git commit -m "v1"
+git init  #初始化 代码
+git status  #查看代码状态
+git add . #添加代码
+git commit -m "v1"    #提交代码 版本
 
-git log
+git log  #查看版本记录
 
 git reset --hard  "后面写版本key" 回滚到以前的版本
 
@@ -27,10 +27,10 @@ git merge 要合并的分支
 删除分支
 git branch-d 分支名称
 
-git remote add origin  https://github.com/jisuwuxian/process_doc.git #上传代码版本
+git remote add origin  https://github.com/jisuwuxian/process_doc.git #添加GitHub代码仓库地址为 origin
 
-git branch -M main
+git branch -M main 
 
-git push -u origin main
+git push -u origin main  #上传到GitHub代码仓库https://github.com/jisuwuxian/process_doc.git
 
-git clone  远程地址#克隆代码
+git clone  远程地址  #克隆代码到本地
