@@ -34,3 +34,5 @@ git branch -M main
 git push -u origin main  #上传到GitHub代码仓库https://github.com/jisuwuxian/process_doc.git
 
 git clone  远程地址  #克隆代码到本地
+
+git pull origin 分支名称
