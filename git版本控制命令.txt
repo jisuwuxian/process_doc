@@ -78,3 +78,20 @@ git pushoriginmaster
 git checkout dev
 git merge master
 git push origin dev
+
+
+添加远程连接(别名)
+git remote add origin地址
+推送代码
+git pushorigindev
+下载代码
+git clone地址
+拉取代码
+git pull origin dev
+等价于
+git fetch origin dev
+git merge origin/dev
+保持代码提交整洁(变基)
+git rebase分支
+记录图形展示
+git log--graph--pretty=format:"%h %s"
